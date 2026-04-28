@@ -7,6 +7,10 @@ found in eScholarship's pages.
 - pub_oapi_tools_common (for database connections)
 - Beautiful Soup (for HTML operations)
 
+## auto_remediate_scheduled.py:
+This is a pared-down version of auto_remediate.py, that is scheduled to run monthly on the `pub-oapi-tools` EC2:
+- Additional try/catch blocks added to ensure well-formed HTML.
+
 ## auto_remediate.py
 This script has a few different modes of operation. Set the
 following global vars:

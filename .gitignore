@@ -2,3 +2,4 @@ Remediation_working
 venv
 .idea
 .DS_Store
+output/
