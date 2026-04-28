@@ -67,12 +67,13 @@ def main():
 
     # Update DB with remediated HTML
     if test_output_only:
-        print("Running in test_output_only mode. Exiting.")
-        exit(0)
+        print("Running in test_output_only mode. "
+              "Remediations not uploaded to prod.")
     else:
         print("Updating prod DB with remediations.")
         update_db_with_remediation(remediated_pages, write_env)
-        email_updates(remediated_pages, output_dir)
+
+    email_updates(remediated_pages, output_dir, test_output_only)
 
 
 def get_db_conn(env):
@@ -209,7 +210,7 @@ def output_email_csv(dict_list, output_dir, filename):
     return output_path
 
 
-def email_updates(remediated_pages, output_dir):
+def email_updates(remediated_pages, output_dir, test_output_only):
 
     # Email clients typically reject HTML in attachments
     for page in remediated_pages:
@@ -220,11 +221,7 @@ def email_updates(remediated_pages, output_dir):
                                    output_dir=output_dir,
                                    filename='remediated_pages_report.csv')
 
-    subprocess_setup = ['mail',
-                        '-s', 'eSchol pages: Empty Element remediation report',
-                        '-a', report_path]
-
-    subprocess_setup += get_email_addresses()
+    subject = "eSchol pages: Empty Element remediation report"
 
     email_body = b"Please see the attached CSV for the results of the monthly " \
                  b"eScholarship pages HTML empty-element remover. Please note the " \
@@ -234,9 +231,19 @@ def email_updates(remediated_pages, output_dir):
 
     email_footer = b"\n\nThis is an automated email sent from the pub-oapi-tools EC2. " \
                    b"Repo: https://github.com/eScholarship/eschol-pages-html-remediation" \
-                   b"\n\nRemember to stay hydrated and get plenty of rest!"
+                   b"\n\nRemember to stay hydrated and get plenty of rest!!"
 
     email_body += email_footer
+
+    if test_output_only:
+        subject = f"TEST TEST TEST {subject}"
+        email_body = b"TEST TEST TEST. NO REMEDIATED HTML UPLOADED TO PROD.\n\n" + email_body
+
+    subprocess_setup = ['mail',
+                        '-s', subject,
+                        '-a', report_path]
+
+    subprocess_setup += get_email_addresses()
 
     print("Running mail subprocess.")
     subprocess.run(subprocess_setup,
