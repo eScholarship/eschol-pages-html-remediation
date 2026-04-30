@@ -1,4 +1,15 @@
 from bs4 import BeautifulSoup
+from html5lib import HTMLParser, parse
+
+
+def validate_html(html):
+    html = f"<!doctype html><html>{html}</html>"
+    parser = HTMLParser(strict=True)
+    try:
+        parser.parse(html)
+        return True
+    except Exception as e:
+        return False
 
 
 def remove_empty_elements(bad_html: str):
@@ -65,10 +76,9 @@ def remove_empty_elements_safe(bad_html: str):
     return soup, empty_elements, empty_elements_with_children
 
 
-def remove_newlines(pages):
+def remove_newlines(pages, html_field):
     """To facilitate export, replaces newlines with spaces."""
     for page in pages:
-        page['html'] = page['html'].replace('\n', ' ')
-        page['remediated_html'] = (str(page['remediated_html'])).replace('\n', ' ')
+        page[html_field] = (str(page[html_field])).replace('\n', ' ')
 
     return pages
