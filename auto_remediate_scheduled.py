@@ -24,10 +24,11 @@ read_env = "prod"
 write_env = read_env
 
 # If true, only files will be output, no dbs updated.
-test_output_only = True
+test_output_only = False
 
 # People to email with run report
-email_recipients = ['devin', 'justin', 'chad']
+email_report = True
+email_recipients = ['devin', 'justin', 'chad', 'escholarship-help']
 
 
 def main():
@@ -51,6 +52,8 @@ def main():
         print("No results returned from page query. Exiting.")
         exit(0)
     else:
+        pages = validate_pages(pages, 'html')
+        pages = html_operations.remove_newlines(pages, 'html')
         output_pages_csv(dict_list=pages,
                          output_dir=output_dir,
                          filename="input_pages.csv")
@@ -61,6 +64,7 @@ def main():
         print("No pages needing remediation. Exiting.")
         exit(0)
     else:
+        remediated_pages = validate_pages(remediated_pages, 'remediated_html')
         output_pages_csv(dict_list=remediated_pages,
                          output_dir=output_dir,
                          filename="remediated_pages.csv")
@@ -70,10 +74,12 @@ def main():
         print("Running in test_output_only mode. "
               "Remediations not uploaded to prod.")
     else:
-        print("Updating prod DB with remediations.")
+        print("Removing invalid HTML remediation and updating prod DB with remediations.")
+        remediated_pages = [p for p in remediated_pages if p['remediated_html_valid']]
         update_db_with_remediation(remediated_pages, write_env)
 
-    email_updates(remediated_pages, output_dir, test_output_only)
+    if email_report:
+        email_updates(remediated_pages, output_dir, test_output_only)
 
 
 def get_db_conn(env):
@@ -121,14 +127,16 @@ def get_pages_html(id_list: list = None):
     return pages
 
 
+def validate_pages(pages, html_field):
+    for page in pages:
+        page[f'{html_field}_valid'] = html_operations.validate_html(page[html_field])
+    return pages
+
+
 def remediate_pages(pages):
     """
     Loops the pages array, checking each HTML for empty elements,
     and adding remediated HTML to the page dict if necessary.
-
-    This uses the "safe" version of the remediator, which notes
-    but *does not remove* empty elements with children.
-
 
     :param pages: A list of dicts containing page info and HTML.
     :return: List of page dicts that needed remediation, including their remediated HTML.
@@ -136,10 +144,15 @@ def remediate_pages(pages):
     for page in pages:
         print(f"\nRemediating: {page['unit_id']}, {page['slug']}")
 
+        if page['html_valid'] is False:
+            print('Invalid input HTML. Setting needs_remediation=False and continuing.')
+            page['needs_remediation'] = False
+            continue
+
         remediated_html, \
             empty_elements, \
             empty_elements_with_children\
-            = html_operations.remove_empty_elements_safe(page['html'])
+            = html_operations.remove_empty_elements(page['html'])
 
         if empty_elements:
             page['needs_remediation'] = True
@@ -152,11 +165,11 @@ def remediate_pages(pages):
         page['empty_elements_with_children_not_removed'] = ';'.join(empty_elements_with_children)
         page['remediated_html'] = remediated_html
 
-    # Removes any pages that don't need remediation
+    # Removes any pages that don't need remediation (also removes invalid input HTML)
     pages_needing_remediation = [p for p in pages if p['needs_remediation']]
 
     # Remove newlines for compactness
-    pages_needing_remediation = html_operations.remove_newlines(pages_needing_remediation)
+    pages_needing_remediation = html_operations.remove_newlines(pages_needing_remediation, 'remediated_html')
 
     return pages_needing_remediation
 
@@ -169,6 +182,8 @@ def update_db_with_remediation(pages, write_env):
     """
     write_conn = get_db_conn(env=write_env)
     with write_conn.cursor() as cursor:
+        print(f"{len(pages)} total pages to update.")
+
         for page in pages:
             print(f"Updating: {page['id']}")
 
