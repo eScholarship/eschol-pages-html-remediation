@@ -138,10 +138,6 @@ def remediate_pages(pages):
     Loops the pages array, checking each HTML for empty elements,
     and adding remediated HTML to the page dict if necessary.
 
-    This uses the "safe" version of the remediator, which notes
-    but *does not remove* empty elements with children.
-
-
     :param pages: A list of dicts containing page info and HTML.
     :return: List of page dicts that needed remediation, including their remediated HTML.
     """
@@ -156,7 +152,7 @@ def remediate_pages(pages):
         remediated_html, \
             empty_elements, \
             empty_elements_with_children\
-            = html_operations.remove_empty_elements_safe(page['html'])
+            = html_operations.remove_empty_elements(page['html'])
 
         if empty_elements:
             page['needs_remediation'] = True
